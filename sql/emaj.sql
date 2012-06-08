@@ -12,11 +12,8 @@
 --	-> the plpgsql language must have been created in the concerned database,
 --  (-> the dblink contrib/extension must have been installed.)
 
-\set ON_ERROR_STOP ON
-\set QUIET ON
 SET client_min_messages TO WARNING;
 
-\echo 'E-Maj objects creation...'
 
 -- create, execute and drop a specific plpgsql function to check the environment
 -- If all pre-requisites are not met, it generates an error that blocks the E-Maj installation. 
@@ -56,7 +53,6 @@ DROP FUNCTION public.emaj_tmp_check_envir();
 
 -- OK, now create E-Maj objects in a single transaction
 
-BEGIN TRANSACTION;
 
 ------------------------------------------
 --                                      --
@@ -4249,7 +4245,4 @@ SELECT emaj._tmp_check_setting();
 DROP FUNCTION emaj._tmp_check_setting();
 
 
-COMMIT;
-
 SET client_min_messages TO default;
-\echo '>>> E-Maj objects successfully created'

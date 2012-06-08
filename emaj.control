@@ -1,0 +1,3 @@
+comment = 'Emaj'
+default_version = '0.11.0'
+relocatable = true
