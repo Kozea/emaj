@@ -931,10 +931,8 @@ $_rlbk_tbl$
            VALUES ('del_log', v_schemaName, v_tableName, v_tsrlbk_start, v_nb_rows, v_tsdel_end - v_tsdel_start);
       END IF;
     END IF;
--- re-activate the log trigger on the application table, if previously disabled
-    IF v_disableTrigger THEN
-      EXECUTE 'ALTER TABLE ' || v_fullTableName || ' ENABLE TRIGGER ' || v_logTriggerName;
-    END IF;
+-- WARNING: the trigger is NOT enabled now, but after every constraint has been
+-- checked.
 -- insert end event in history
     INSERT INTO emaj.emaj_hist (hist_function, hist_event, hist_object, hist_wording) 
       VALUES ('ROLLBACK_TABLE', 'END', v_fullTableName, v_nb_rows || ' rollbacked rows');
@@ -2563,6 +2561,11 @@ $_rlbk_groups$
     PERFORM emaj._rlbk_groups_step6(v_groupNames, 1);
 -- Step 7: process sequences and complete the rollback operation record
     SELECT emaj._rlbk_groups_step7(v_groupNames, v_mark, v_nbTbl, v_unloggedRlbk, v_deleteLog, v_multiGroup) INTO v_nbSeq;
+-- Step 8: re-enable trigger if needed
+    SET CONSTRAINTS ALL IMMEDIATE;
+    IF v_unloggedRlbk THEN
+      PERFORM emaj._rlbk_groups_step8(v_groupNames, 1);
+    END IF;
     RETURN v_nbTbl + v_nbSeq;
   END;
 $_rlbk_groups$;
@@ -2979,6 +2982,23 @@ $_rlbk_groups_step7$
     RETURN v_nbSeq;
   END;
 $_rlbk_groups_step7$;
+
+CREATE or REPLACE FUNCTION emaj._rlbk_groups_step8(v_groupNames TEXT[], v_session int)
+RETURNS VOID LANGUAGE plpgsql as $_rlbk_groups_step8$
+  DECLARE
+    table_row RECORD;
+  BEGIN
+    FOR table_row in
+      SELECT quote_ident(rel_schema) || '.' || quote_ident(rel_tblseq) as tablename,
+              quote_ident(rel_schema || '_' || rel_tblseq || '_emaj_log_trg') as trigger_name
+              FROM emaj.emaj_relation 
+              WHERE rel_group = ANY (v_groupNames) AND rel_session = v_session AND rel_kind = 'r' AND rel_rows > 0
+              ORDER BY rel_priority, rel_schema, rel_tblseq
+      LOOP
+        EXECUTE 'ALTER TABLE ' || table_row.tablename || ' ENABLE TRIGGER ' || table_row.trigger_name;
+      END LOOP;
+  END;
+$_rlbk_groups_step8$;
 
 CREATE or REPLACE FUNCTION emaj.emaj_reset_group(v_groupName TEXT) 
 RETURNS INT LANGUAGE plpgsql SECURITY DEFINER AS
