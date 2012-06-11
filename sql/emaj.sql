@@ -2544,7 +2544,7 @@ $_rlbk_groups$
     IF v_groupNames IS NULL THEN
       RETURN 0;
     END IF;
--- Step 1: prepare the rollback operation
+    SET CONSTRAINTS ALL DEFERRED;
     SELECT emaj._rlbk_groups_step1(v_groupNames, v_mark, v_unloggedRlbk, 1, v_multiGroup) INTO v_nbTblInGroup;
 -- Step 2: lock all tables
     PERFORM emaj._rlbk_groups_step2(v_groupNames, 1, v_multiGroup);
@@ -2820,6 +2820,7 @@ $_rlbk_groups_step4$
           AND c.conrelid  = t.oid AND t.relnamespace  = n.oid            -- joins for table and namespace 
           AND n.nspname = r.rel_schema AND t.relname = r.rel_tblseq      -- join on group table
           AND r.rel_group = ANY (v_groupNames) AND r.rel_session = v_session
+          AND not c.condeferrable
       UNION
 --           and the foreign keys referencing the session's tables
       SELECT v_groupNames, v_session, c.conname, n.nspname, t.relname, pg_get_constraintdef(c.oid)
@@ -2828,7 +2829,8 @@ $_rlbk_groups_step4$
           AND c.conrelid  = t.oid AND t.relnamespace  = n.oid            -- joins for table and namespace 
           AND c.confrelid  = rt.oid AND rt.relnamespace  = rn.oid        -- joins for referenced table and namespace 
           AND rn.nspname = r.rel_schema AND rt.relname = r.rel_tblseq    -- join on group table
-          AND r.rel_group = ANY (v_groupNames) AND r.rel_session = v_session;
+          AND r.rel_group = ANY (v_groupNames) AND r.rel_session = v_session
+          AND not c.condeferrable;
 --    and drop all these foreign keys
     FOR r_fk IN
       SELECT fk_schema, fk_table, fk_name FROM emaj.emaj_fk 
