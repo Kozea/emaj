@@ -2545,6 +2545,7 @@ $_rlbk_groups$
       RETURN 0;
     END IF;
     SET CONSTRAINTS ALL DEFERRED;
+-- Step 1: prepare the rollback operation
     SELECT emaj._rlbk_groups_step1(v_groupNames, v_mark, v_unloggedRlbk, 1, v_multiGroup) INTO v_nbTblInGroup;
 -- Step 2: lock all tables
     PERFORM emaj._rlbk_groups_step2(v_groupNames, 1, v_multiGroup);
